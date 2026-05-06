@@ -2,34 +2,46 @@
 ## llama.cpp throughout. No Docker. Cross-platform via 00-setup/*.
 
 VENV     := .venv
-PY       := $(VENV)/bin/python
-PIP      := $(VENV)/bin/pip
-LOCUST   := $(VENV)/bin/locust
+# Detect Platform
+PLATFORM := $(shell uname -s 2>/dev/null || echo Unknown)
 
-# Detect OS for setup target. macOS, Linux, anything-else (Windows users use the .ps1 directly).
-OS := $(shell uname -s 2>/dev/null || echo Unknown)
+ifeq ($(OS),Windows_NT)
+    VENV_BIN := $(VENV)/Scripts
+else ifneq (,$(filter MINGW% MSYS% CYGWIN%,$(PLATFORM)))
+    VENV_BIN := $(VENV)/Scripts
+else
+    VENV_BIN := $(VENV)/bin
+endif
+
+PY       := $(VENV_BIN)/python
+PIP      := $(VENV_BIN)/pip
+LOCUST   := $(VENV_BIN)/locust
 
 .DEFAULT_GOAL := help
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} \
 	      /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-	@printf "\nWindows users: run 00-setup/windows-setup.ps1 then call individual scripts directly.\n\n"
+	@printf "\nWindows users: 'make setup' will run the PowerShell setup script for you.\n\n"
 
 # ─────────────────────────────────────────────────────────────
 # Setup
 # ─────────────────────────────────────────────────────────────
 
 probe: ## Probe hardware — writes hardware.json (no install)
-	@python3 00-setup/detect-hardware.py
+	@python 00-setup/detect-hardware.py
 
 setup: ## Install deps + build llama-cpp-python + download models (auto-detects OS)
-ifeq ($(OS),Darwin)
+ifeq ($(PLATFORM),Darwin)
 	@bash 00-setup/macos-setup.sh
-else ifeq ($(OS),Linux)
+else ifeq ($(PLATFORM),Linux)
 	@bash 00-setup/linux-setup.sh
+else ifeq ($(OS),Windows_NT)
+	@pwsh -ExecutionPolicy Bypass -File 00-setup/windows-setup.ps1 || powershell -ExecutionPolicy Bypass -File 00-setup/windows-setup.ps1
+else ifneq (,$(filter MINGW% MSYS% CYGWIN%,$(PLATFORM)))
+	@pwsh -ExecutionPolicy Bypass -File 00-setup/windows-setup.ps1 || powershell -ExecutionPolicy Bypass -File 00-setup/windows-setup.ps1
 else
-	@echo "Unknown OS '$(OS)'. On Windows: pwsh -ExecutionPolicy Bypass -File 00-setup/windows-setup.ps1"
+	@echo "Unknown Platform '$(PLATFORM)'. On Windows: pwsh -ExecutionPolicy Bypass -File 00-setup/windows-setup.ps1"
 	@exit 1
 endif
 

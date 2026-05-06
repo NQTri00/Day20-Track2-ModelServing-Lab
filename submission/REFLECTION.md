@@ -4,9 +4,9 @@
 
 ---
 
-**Họ Tên:** _<Họ Tên>_
-**Cohort:** _<A20-K1 / A20-K2 / ...>_
-**Ngày submit:** _<YYYY-MM-DD>_
+**Họ Tên:** Ninh Quang Trí
+**Cohort:** A20-K1
+**Ngày submit:** 2026-05-06
 
 ---
 
@@ -14,18 +14,16 @@
 
 > Paste output của `python 00-setup/detect-hardware.py` vào đây, hoặc điền thủ công:
 
-- **OS:** _<macOS 14 / Windows 11 / Ubuntu 24.04 / ...>_
-- **CPU:** _<Apple M2 / Intel i7-12700H / AMD Ryzen 7 5800H / ...>_
-- **Cores:** _<physical / logical>_
-- **CPU extensions:** _<AVX2 / AVX-512 / NEON / —>_
-- **RAM:** _<GB>_
-- **Accelerator:** _<NVIDIA RTX 4060 8GB / Apple Metal / AMD ROCm / Vulkan / CPU only>_
-- **llama.cpp backend đã chọn:** _<CUDA / Metal / Vulkan / CPU>_
-- **Recommended model tier:** _<TinyLlama-1.1B / Qwen2.5-1.5B / Llama-3.2-3B / Qwen2.5-7B>_
+- **OS:** Windows 10 (MINGW64)
+- **CPU:** Intel(R) Core(TM) i5-8250U CPU @ 1.60GHz
+- **Cores:** 4 physical / 8 logical
+- **CPU extensions:** AVX, AVX2, FMA, F16C
+- **RAM:** 15.9 GB
+- **Accelerator:** NVIDIA GeForce GTX 1050 (2048 MiB)
+- **llama.cpp backend đã chọn:** CPU (AVX/NEON tuning)
+- **Recommended model tier:** TinyLlama-1.1B (Q4_K_M)
 
-**Setup story** (≤ 80 chữ): những gì cần thay đổi để lab chạy được trên máy bạn (vd: dùng WSL2, install CUDA Toolkit, fall back sang Vulkan vì ROCm phiên bản kén, tắt antivirus để pip install nhanh hơn, v.v.):
-
-_Answer here._
+**Setup story** (≤ 80 chữ): Để chạy lab trên MINGW, tôi đã sửa Makefile để hỗ trợ Windows, cài thêm `prometheus-client` và patch `app.py` của `llama_cpp.server` để có endpoint `/metrics`. Tôi cũng xử lý lỗi "Long Path" khi install bằng cách dùng thư mục `tmp_pip` ở root.
 
 ---
 
@@ -33,12 +31,12 @@ _Answer here._
 
 > Paste bảng từ `benchmarks/01-quickstart-results.md` xuống đây (auto-generated bởi `python 01-llama-cpp-quickstart/benchmark.py`).
 
-| Model | Load (ms) | TTFT P50/P95 (ms) | TPOT P50/P95 (ms) | E2E P50/P95/P99 (ms) | Decode rate (tok/s) |
-|---|--:|--:|--:|--:|--:|
-| (Q4_K_M) | | | | | |
-| (Q2_K)   | | | | | |
+| Model    | Load (ms) | TTFT P50/P95 (ms) | TPOT P50/P95 (ms) | E2E P50/P95/P99 (ms) | Decode rate (tok/s) |
+| -------- | --------: | ----------------: | ----------------: | -------------------: | ------------------: |
+| (Q4_K_M) |       992 |         191 / 247 |       40.3 / 70.3 |   2712 / 2791 / 2793 |                24.8 |
+| (Q2_K)   |       204 |         324 / 414 |       37.6 / 52.8 |   2585 / 2929 / 3024 |                26.6 |
 
-**Một quan sát** (≤ 50 chữ): Q4_K_M vs Q2_K trên máy bạn — số liệu nói gì? Quality đáng đánh đổi không?
+**Một quan sát** (≤ 50 chữ): Q2_K tải nhanh hơn hẳn (204ms vs 992ms) và có throughput nhỉnh hơn một chút (26.6 tok/s). Tuy nhiên, Q4_K_M vẫn đạt mức >20 tok/s, đủ mượt cho chat, nên đây là lựa chọn cân bằng tốt nhất cho máy tôi.
 
 _Answer here._
 
@@ -49,30 +47,28 @@ _Answer here._
 > Chạy 2 lần locust ở concurrency 10 và 50, paste tóm tắt bên dưới.
 
 | Concurrency | Total RPS | TTFB P50 (ms) | E2E P95 (ms) | E2E P99 (ms) | Failures |
-|--:|--:|--:|--:|--:|--:|
-| 10 | | | | | |
-| 50 | | | | | |
+| ----------: | --------: | ------------: | -----------: | -----------: | -------: |
+|          10 |      0.23 |         21000 |        45000 |        45000 |       0% |
+|          50 |      0.22 |         19000 |        45000 |        45000 |       0% |
 
-**KV-cache observation** (từ `record-metrics.py`): peak `llamacpp:kv_cache_usage_ratio` ở concurrency 50 = _<0.XX>_, nghĩa là …
+**KV-cache observation** (từ `record-metrics.py`): peak `llamacpp:kv_cache_usage_ratio` ở concurrency 10 = **0.0**, nghĩa là bộ nhớ cache vẫn còn rất dư dả cho model nhỏ này.
 
-_Answer here._
+**Reflection** (≤ 60 chữ): Với TinyLlama, KV-cache usage gần như bằng 0 trên model 1.1B. Tuy nhiên, latency P95 lên đến 45s cho thấy CPU 4 nhân đời cũ là nút thắt cổ chai chính khi xử lý nhiều user cùng lúc.
 
 ---
 
 ## 4. Track 03 — Milestone integration
 
-- **N16 (Cloud/IaC):** _<piece you connected — k3d cluster / GCP project / docker-compose / "stub: localhost only">_
-- **N17 (Data pipeline):** _<piece — Airflow DAG / batch job / "stub: in-memory dict">_
-- **N18 (Lakehouse):** _<piece — Delta Lake table / Iceberg / "stub: SQLite">_
-- **N19 (Vector + Feature Store):** _<piece — Qdrant index / Feast / "stub: TOY_DOCS">_
+- **N16 (Cloud/IaC):** stub: localhost only
+- **N17 (Data pipeline):** stub: in-memory dict
+- **N18 (Lakehouse):** stub: SQLite
+- **N19 (Vector + Feature Store):** stub: TOY_DOCS
 
-**Nơi tốn nhiều ms nhất** trong pipeline (đo bằng `time.perf_counter` trong `pipeline.py`):
+- embed: 0.0 ms
+- retrieve: 0.1 ms
+- llama-server: 12116 ms
 
-- embed: _<ms>_
-- retrieve: _<ms>_
-- llama-server: _<ms>_
-
-**Reflection** (≤ 60 chữ): bottleneck nằm ở đâu? Có khớp với kỳ vọng không?
+**Reflection** (≤ 60 chữ): Bottleneck nằm hoàn toàn ở llama-server (LLM inference). Thời gian xử lý lên tới 12s mỗi câu hỏi là do CPU phải thực hiện prefill/decode trên model 1.1B mà không có hỗ trợ từ GPU. Các bước retrieve/embed gần như không đáng kể (0.1ms).
 
 _Answer here._
 

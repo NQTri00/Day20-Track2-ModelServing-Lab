@@ -142,10 +142,14 @@ def detect_docker() -> dict:
 
 
 def recommend(cpu: dict, ram: float, gpu: dict, docker: dict) -> dict:
-    backends = gpu["backends"]
+    backends = gpu["backends"].copy()
+
+    # User override: force CPU-only mode
+    for k in backends:
+        backends[k] = (k == "cpu_only")
 
     # Pick the llama.cpp build backend with the best speed-vs-setup ratio.
-    if backends["nvidia_cuda"]:
+    if backends.get("nvidia_cuda"):
         primary_backend = "CUDA"
         cmake_flag = "-DGGML_CUDA=on"
     elif backends["apple_metal"]:
@@ -170,14 +174,8 @@ def recommend(cpu: dict, ram: float, gpu: dict, docker: dict) -> dict:
     if backends["apple_metal"]:
         paths.append("BONUS-mlx-macos")
 
-    if ram >= 32:
-        model = "Qwen2.5-7B-Instruct (Q4_K_M)"
-    elif ram >= 16:
-        model = "Llama-3.2-3B-Instruct (Q4_K_M)"
-    elif ram >= 8:
-        model = "Qwen2.5-1.5B-Instruct (Q4_K_M)"
-    else:
-        model = "TinyLlama-1.1B (Q4_K_M)"
+    # Always use the weakest model as requested
+    model = "TinyLlama-1.1B (Q4_K_M)"
 
     return {
         "recommended_paths": paths,
@@ -188,6 +186,13 @@ def recommend(cpu: dict, ram: float, gpu: dict, docker: dict) -> dict:
 
 
 def main() -> int:
+    # Ensure UTF-8 output for Windows terminals
+    if sys.platform == "win32":
+        try:
+            sys.stdout.reconfigure(encoding='utf-8')
+        except (AttributeError, IOError):
+            pass
+
     cpu = detect_cpu()
     ram = detect_ram_gb()
     gpu = detect_gpu()

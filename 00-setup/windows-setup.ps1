@@ -36,14 +36,25 @@ pip install -r requirements.txt
 
 # 3. llama-cpp-python — prebuilt CPU wheel works on Windows out of the box.
 #    For CUDA, set $env:LLAMA_CUDA=1 and ensure CUDA Toolkit + cmake are installed.
+#    Note: We use a custom short TMP path to avoid Windows Long Path errors during build.
+$shortTmp = Join-Path (Split-Path $LabRoot -Qualifier) "\tmp_pip"
+if (-not (Test-Path $shortTmp)) { New-Item -ItemType Directory -Path $shortTmp | Out-Null }
+$oldTmp = $env:TMP
+$env:TMP = $shortTmp
+$env:TEMP = $shortTmp
+
 if ($env:LLAMA_CUDA -eq '1') {
     Write-Host "==> Building llama-cpp-python with CUDA (requires CUDA Toolkit + cmake)"
     $env:CMAKE_ARGS = '-DGGML_CUDA=on'
-    pip install --upgrade --force-reinstall --no-cache-dir llama-cpp-python
+    pip install --upgrade --force-reinstall --no-cache-dir "llama-cpp-python[server]"
 } else {
-    Write-Host "==> Installing prebuilt llama-cpp-python (CPU)"
-    pip install --upgrade llama-cpp-python
+    Write-Host "==> Installing llama-cpp-python (CPU)"
+    pip install --upgrade --no-cache-dir "llama-cpp-python[server]"
 }
+
+$env:TMP = $oldTmp
+$env:TEMP = $oldTmp
+Remove-Item -Recurse -Force $shortTmp -ErrorAction SilentlyContinue
 
 # 4. Probe + download model
 python .\00-setup\detect-hardware.py

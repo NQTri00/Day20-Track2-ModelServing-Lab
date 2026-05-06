@@ -45,9 +45,6 @@ TIERS: dict[str, tuple[str, str, str]] = {
 
 
 def pick_tier(rec_model: str) -> str:
-    for key in TIERS:
-        if rec_model.startswith(key):
-            return key
     return "TinyLlama-1.1B"
 
 
